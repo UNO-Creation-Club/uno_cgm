@@ -62,9 +62,6 @@ function card:create(l_props, d_props, h_props)
 end
 
 function card:draw() -- format can be 'hidden', 'grey', 'visible'
-  -- if  == 'grey' then
-  --   love.graphics.setColor(u.normalize(127, 127, 127, 127))
-  -- end
   love.graphics.draw(self.d_props.img,
   self.d_props.sx <= 0 and card.quads['Title'] or self.d_props.quad,
   self.d_props.x,
@@ -76,7 +73,6 @@ function card:draw() -- format can be 'hidden', 'grey', 'visible'
   self.d_props.oy,
   self.d_props.kx,
   self.d_props.ky)
-  love.graphics.setColor(u.normalize(255, 255, 255))
 end
 
 function card:change_d_props(params)

@@ -63,7 +63,7 @@ function player:place(x, y)
     }
     card:change_h_props{
       on_click = function(card)
-        self.state.discard_pile:add(self:remove(self:_get_index(card))) -- add it to the discard pile
+        self.event_handler:dispatch({name = 'card_played', type = card})
       end,
       on_enter = function(card)
         self.anim:move{obj = card, to = self.elevated_card_height}
@@ -88,8 +88,7 @@ function player:add(new_card)
   }
   new_card:change_h_props{
     on_click = function(card)
-      local popped_card = self:remove(self:_get_index(card))
-      self.state.discard_pile:add(popped_card) -- add it to the discard pile
+      self.event_handler:dispatch({name = 'card_played', type = card})
     end,
     on_enter = function(card)
       self.anim:move{obj = card, to = self.elevated_card_height}
@@ -109,12 +108,12 @@ function player:add(new_card)
   self.anim:move{obj = new_card, to = {x = c_x, y = y}}
 end
 
-function player:remove(index) -- game rules happen
+function player:remove(card) -- game rules happen
   local x, y = self.d_props.x, self.d_props.y
   local n = #self.cards-1
   local sep = _get_card_separation(n)
 
-  local card = table.remove(self.cards, index)
+  local card = table.remove(self.cards, self:_get_index(card))
 
   local c_x = x - (n-1) * sep / 2
   for i, c in ipairs(self.cards) do
@@ -131,10 +130,12 @@ end
 
 function player:draw()
   for i, card in ipairs(self.cards) do
-    if player.valid_indices then
-
-    end
+    -- if not self.valid_card_indices[i] then
+    --   self:deactivate_card(card)
+    --   love.graphics.setColor(u.normalize(100, 100, 100))
+    -- end
     card:draw()
+    -- love.graphics.setColor(u.normalize(255, 255, 255))
   end
   love.graphics.printf(self.name, self.d_props.x, self.d_props.y - 120, 100, 'center')
 end
@@ -153,10 +154,20 @@ end
 
 function player:activate()
   self.hitbox:activate_region(string.format('player_%s', self.name))
+  self:show_cards()
 end
 
 function player:deactivate()
   self.hitbox:deactivate_region(string.format('player_%s', self.name))
+  self:hide_cards()
+end
+
+function player:activate_card(card)
+  self.hitbox:deactivate_card(string.format('player_%s', self.name), card)
+end
+
+function player:deactivate_card(card)
+  self.hitbox:deactivate_object(string.format('player_%s', self.name), card)
 end
 
 return player

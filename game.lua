@@ -166,7 +166,9 @@ end
 local function update_player(state)
   state.curr_player.card_drawn = false
   state.curr_player_id = get_next_player_id(state)
+  state.curr_player:deactivate()
   state.curr_player = state.players[state.curr_player_id]
+  state.curr_player:activate()
 end
 
 -- COMPLETE
@@ -199,6 +201,7 @@ apply_rules_first_time = coroutine.create(function (state)
   -- if it's a reverse, change direction. curr_player remains same
   -- if it's a wild 4, return the card to the bottom of the draw_pile
   -- if it's a wild, curr_player chooses the color
+  state.phase = 'first time'
   local initial_top_card = state.discard_pile:peek_top_card()
 
   if initial_top_card:get_rank() == "D" then
@@ -216,46 +219,46 @@ apply_rules_first_time = coroutine.create(function (state)
     state.discard_pile:add(c)
   elseif initial_top_card:get_value() == "W1" then
     event_handler:dispatch{name = 'halt_game'}
-    state.deck_suit = coroutine.yield()
-    game.state.phase = 'running'
+    -- state.deck_suit = coroutine.yield()
+    coroutine.yield()
+    state.phase = 'running'
   end
   generate_valid_card_indices(state.curr_player, initial_top_card, state.deck_suit)
 end)
 
 -- TODO
-apply_rules = coroutine.create(function (state)
-  -- if it's draw 2, give next player 2 cards and skip his turn
-  -- if it's a skip, skip next player's turn
-  -- if it's a reverse, change direction
-  -- if it's a wild 4, attempt to give the next player 4 cards, allow him to challenge the current player, current player chooses the color
-  -- if it's a wild, curr_player chooses the deck_suit
-  while true do
-    local top_card = state.discard_pile:peek_top_card()
-    if top_card:get_rank() == "D" then
-      update_player(state)
-      for i=1, 2 do 
-        state.curr_player:add(draw_pile:remove())
-      end
-    elseif top_card:get_rank() == "S" then
-      update_player(state)
-    elseif top_card:get_rank() == "R" then
-      change_direction(state)
-    elseif top_card:get_suit() == "W" then
-      game.state.phase = 'halted'
-      game.state.deck_suit = coroutine.yield()
-      game.state.phase = 'running'
-      if top_card:get_rank() == "4" then
-        for i = 1, 4 do
-          get_next_player(state):add(draw_pile:remove())
-        end
-      end
-      -- Colour Choosing -- Update deck_suit --
+function apply_rules(state)
+-- if it's draw 2, give next player 2 cards and skip his turn
+-- if it's a skip, skip next player's turn
+-- if it's a reverse, change direction
+-- if it's a wild 4, attempt to give the next player 4 cards, allow him to challenge the current player, current player chooses the color
+-- if it's a wild, curr_player chooses the deck_suit
+  local top_card = state.discard_pile:peek_top_card()
+  if top_card:get_rank() == "D" then
+    update_player(state)
+    for i=1, 2 do 
+      state.curr_player:add(draw_pile:remove())
     end
-    update_player(state) 
-    generate_valid_card_indices(state.curr_player, top_card, state.deck_suit)
-    coroutine.yield()
+  elseif top_card:get_rank() == "S" then
+    update_player(state)
+  elseif top_card:get_rank() == "R" then
+    change_direction(state)
+  elseif top_card:get_suit() == "W" then
+    if game.state.phase == 'running' then
+      game.state.phase = 'halted'
+      return event_handler:dispatch({name = 'halt_game'})
+    end
+    game.state.phase = 'running'
+    if top_card:get_rank() == "4" then
+      for i = 1, 4 do
+        get_next_player(state):add(draw_pile:remove())
+      end
+    end
+    -- Colour Choosing -- Update deck_suit --
   end
-end)
+  update_player(state) 
+  generate_valid_card_indices(state.curr_player, top_card, state.deck_suit)
+end
 
 local function check_game_termination(state)
     if #state.curr_player.cards == 0 then
@@ -295,33 +298,32 @@ local function get_points_for_winner(winner_id, players)
   return value
 end
 
--- COMPLETE, TESTED
-local function show_player(player, is_current)
-  if is_current then
-    player:draw()
-  else
-    player:draw('hidden')
-  end
+function trial(state)
+  update_player(state)
 end
 
 function event_handler:on_receiving(event)
-  -- if event.name == 'halt_game' then
-  --   game.state.draw_pile:deactivate()
-  --   game.state.curr_player:deactivate()
-  --   color_buttons:show()
-  -- elseif event.name == 'card_played' then
-  --   -- do things realted to card being played
-  -- elseif event.name == 'color_selected' then
-  --   game.state.deck_suit = event.type
-  --   game.state.draw_pile:activate()
-  --   update_player(game.state)
-  --   game.state.curr_player:activate()
-  --   color_buttons:hide()
-  -- end
+  if event.name == 'halt_game' then
+    game.state.draw_pile:deactivate()
+    game.state.curr_player:deactivate()
+    color_buttons:show()
+  elseif event.name == 'card_played' then
+    -- do things realted to card being played
+    game.state.discard_pile:add(game.state.curr_player:remove(event.type))
+    trial(game.state)
+    -- coroutine.resume(apply_rules, game.state)
+  elseif event.name == 'color_selected' then
+    game.state.deck_suit = event.type
+    game.state.draw_pile:activate()
+    if game.state.phase ~= 'first time' then
+       update_player(game.state)
+    end
+    game.state.curr_player:activate()
+    color_buttons:hide()
+  end
 end
 
 -- Love2D integration functions
-
 function game:load(players_names)
   self.state.bg = {d_props = {r = enums.colors.W[1], g = enums.colors.W[2], b = enums.colors.W[3], a = enums.colors.W[4]}, while_animating = function(self) love.graphics.setBackgroundColor(self.d_props.r, self.d_props.g, self.d_props.b, self.d_props.a) end}
   player_names = player_names or {'A', 'B', 'C'} -- if nothing is passed, we'll assume these 3 random names
@@ -355,16 +357,15 @@ function game:draw()
     p:draw()
   end
 
-  -- color_buttons:draw()
+  color_buttons:draw()
 
   if self.state.phase == 'over' then
     -- show final score
   end
 
-
   if game.phase == 'development' then
-    hitbox:draw_regions() -- debugging purposes, will show what regions we have defined
     love.graphics.printf(self.state.deck_suit, 200, 200, 300)
+    hitbox:draw_regions() -- debugging purposes, will show what regions we have defined
 
 
     love.graphics.print(string.format('(%s, %s)', love.mouse.getX(), love.mouse.getY()), 0, 0)
@@ -383,37 +384,3 @@ function game:mousemoved(x, y)
 end
 
 return game
-
-----------
-
--- To be fixed --
-
---D 1.The deck_suit does not get updated after colour selection.
---D 2.The valid_card selection has a problem when 'W' is the top_card, 
--- as we even match the rank for selecting a valid card, cards with rank 1/4 irrespective of the deck suit get selected
---D 3.No end game happens. (Nothing happens when a player's cards run out.)
---D 4. When selection is nil, player can still play some card when space is pressed. 
-      -- added a condition in game.keypressed for space, #game.state.curr_player.valid_card_indices ~= 0 -- Works
-
-
--- More features --
-
---D 5. if you pick a card, you cannot play any card other than that card
--- so even if you had other valid cards, after picking, they will not be counted as valid playable cards
--- 6. a 'pass' button to pass one's turn
--- 7. "UNO" option and its penalty
-
--- Bugs!!!
-
---[[
-
-S 1. top_card is hidden
-  2. the cards being drawn can't be dropped
-3. when W/W4 is dropped it waits for current player only to drop another card
-4. we have to have soemthing for colour selection
-5. the game direction is random
-6. when +2/W4 are played the cards are on top of the deck, they don't directly go to the player
-7. cards get stuck up sometimes after hover
-8. 
-
-]]

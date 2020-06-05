@@ -59,6 +59,10 @@ function hitbox:deactivate_object(id, obj)
   self.deactivated_objects[id][obj] = true
 end
 
+function hitbox:activate_object(id, obj)
+  self.deactivated_objects[id][obj] = false
+end
+
 function hitbox:place(params)
   table.insert(self._pending_placements, params)
 end
@@ -177,8 +181,8 @@ function hitbox:update(dt)
   end
 
   -- hover checks
-  hover_entered_region = nil
-  hover_entered_region_id = nil
+  self.hover_entered_region = nil
+  self.hover_entered_region_id = nil
   for id, region in pairs(self.regions) do
     if not self.deactivated_regions[id] then
       local hover_inside_region = self.mx >= region.x and
@@ -203,7 +207,7 @@ function hitbox:update(dt)
                          self.mx <= (obj.d_props.x - math.abs(obj.d_props.sx * obj.d_props.ox)) + obj:get_width() * math.abs(obj.d_props.sx) and
                          self.my >= (obj.d_props.y - math.abs(obj.d_props.sy * obj.d_props.oy)) and 
                          self.my <= (obj.d_props.y - math.abs(obj.d_props.sy * obj.d_props.oy)) + obj:get_height() * math.abs(obj.d_props.sy)
-      if inside_obj then
+      if inside_obj and not self.deactivated_objects[self.hover_entered_region_id][obj] then
         self.entered_object = obj
         break
       end
