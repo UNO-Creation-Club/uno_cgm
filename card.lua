@@ -1,5 +1,4 @@
 local u = require('utility')
-local anim = require('anim')
 
 local function _build_quads(card_sheet_image)
   local suits = {'R', 'Y', 'G', 'B'} 
@@ -26,33 +25,39 @@ end
 local card = {
   img = love.graphics.newImage('assets/images/uno_min.png'),
   dims = {width = 240, height = 360},
-
+  d_props = {
+    scale = 0.5
+  },
   __tostring = function(c) return c.l_props.value end,
 }
 card.__index = card
 
+function card:initialize(params)
+  for k, v in pairs(params) do
+    self[k] = v
+  end
+end
+
 card.quads = _build_quads(card.img)
 
-function card:create(l_props, d_props)
+function card:create(l_props, d_props, h_props)
   d_props = d_props or {}
   return setmetatable({
-    l_props = {
-      value = l_props.value,
-      belongs_to = l_props.belongs_to,
-      id = l_props.id, -- index if belongs_to == 'player'
-    },
+    l_props = l_props,
     d_props = {
       img = d_props.img or card.img,
       quad = d_props.quad or card.quads[l_props.value],
       x = d_props.x or 0,
       y = d_props.y or 0,
       r = d_props.r or 0,
-      sx = d_props.sx or -0.5,
-      sy = d_props.sy or 0.5,
+      sx = d_props.sx or -card.d_props.scale,
+      sy = d_props.sy or card.d_props.scale,
       ox = d_props.ox or card.dims.width / 2,
       oy = d_props.oy or card.dims.height / 2,
       kx = d_props.kx or 0,
-      ky = d_props.ky or 0}
+      ky = d_props.ky or 0,
+    },
+    h_props = h_props or {},
   }, card)
 end
 
@@ -81,18 +86,27 @@ function card:change_d_props(params)
   return self
 end
 
-function card:hide()
-  anim:move{obj = self, to = {sx = - 0.5}, fn = anim.fn.COS}
-end
-
-function card:show()
-  anim:move{obj = self, to = {sx = 0.5}, fn = anim.fn.COS}
-end
-
 function card:change_l_props(params)
   for k, v in pairs(params) do
     self.l_props[k] = v
   end
+  return self
+end
+
+function card:change_h_props(params)
+  for k, v in pairs(params) do
+    self.h_props[k] = v
+  end
+  return self
+end
+
+function card:hide()
+  self.anim:move{obj = self, to = {sx = -card.d_props.scale}, fn = self.anim.fn.COS, seconds = 0.2}
+  return self
+end
+
+function card:show()
+  self.anim:move{obj = self, to = {sx = card.d_props.scale}, fn = self.anim.fn.COS, seconds = 0.2}
   return self
 end
 

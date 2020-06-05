@@ -1,18 +1,38 @@
-local anim = require('anim')
 local u = require('utility')
 
-local player = {}
+local player = {
+  _global_id = 0,
+}
 player.__index = player
 
-function player:create(name, id, cards, position)
+function player:initialize(params)
+  for k, v in pairs(params) do
+    self[k] = v
+  end
+end
+
+function player:create(params)
+  assert(params.name, 'CUSTOM_ERROR: Player name HAS to be provided!')
+  
+  if not params.id then
+    params.id = self._global_id + 1
+    self._global_id = self._global_id + 1
+  end
+
   local p =  setmetatable({
-    name = name,
-    id = id,
-    cards = cards,
+    name = params.name,
+    id = params.id,
+    cards = params.cards or {},
+    selected_card_id = 1,
+    valid_card_indices = {},
     card_drawn = false,
-    d_props = {x = position and position.x or 0, y = position and position.y or 0}
+    d_props = {x = params.position and params.position.x or 0, y = params.position and params.position.y or 0}
   }, player)
-  p:set_position(p.d_props.x, p.d_props.y)
+
+  p.normal_card_height = {y = p.d_props.y}
+  p.elevated_card_height = {y = p.d_props.y - 40}
+
+  p:place(p.d_props.x, p.d_props.y)
   return p
 end
 
@@ -21,66 +41,122 @@ local function _get_card_separation(n)
   return n <= 7 and 300 / 7 or 300 / n
 end
 
-function player:set_position(x, y)
+function player:_get_index(card)
+  for i, c in ipairs(self.cards) do
+    if c == card then
+      return i
+    end
+  end
+end
+
+function player:place(x, y)
   self.d_props.x, self.d_props.y = x, y
-  -- Set the player around (self.d_props.x, self.d_props.y) (along with their cards of course)
   local n = #self.cards
   local sep = _get_card_separation(n)
 
   local c_x = x - (n-1) * sep / 2
   for i, card in ipairs(self.cards) do
-    card
-    :change_d_props{x = c_x, y = y}
-    :change_d_props{y_init = y, y_final = y - 40}
+    self.anim:move{obj = card, to = {x = c_x, y = y}}
+    self.hitbox:place{
+      id = string.format('player_%s', self.name),
+      obj = card
+    }
+    card:change_h_props{
+      on_click = function(card)
+        self.state.discard_pile:add(self:remove(self:_get_index(card))) -- add it to the discard pile
+      end,
+      on_enter = function(card)
+        self.anim:move{obj = card, to = self.elevated_card_height}
+      end,
+      on_exit = function(card)
+        self.anim:move{obj = card, to = self.normal_card_height}
+      end
+    }
     c_x = c_x + sep
   end
 end
 
-function player:add_card(new_card)
-  -- restructure positions
-  -- add card to player (referenced by self)
+function player:add(new_card)
+  local draw_pile = self.state.draw_pile
   local x, y = self.d_props.x, self.d_props.y
   local n = #self.cards+1
   local sep = _get_card_separation(n)
 
+  self.hitbox:place{
+    id = string.format('player_%s', self.name),
+    obj = new_card
+  }
+  new_card:change_h_props{
+    on_click = function(card)
+      local popped_card = self:remove(self:_get_index(card))
+      self.state.discard_pile:add(popped_card) -- add it to the discard pile
+    end,
+    on_enter = function(card)
+      self.anim:move{obj = card, to = self.elevated_card_height}
+    end,
+    on_exit = function(card)
+      self.anim:move{obj = card, to = self.normal_card_height}
+    end
+  }
+
   local c_x = x - (n-1) * sep / 2
   for i, c in ipairs(self.cards) do
-    -- c:change_d_props{x = c_x, y = y}:change_l_props{belongs_to=self.name, player_id = self.id}
-    c:change_l_props{belongs_to=self.name, player_id = self.id}
-    anim:move{obj = c, to = {x = c_x, y = y}}
+    self.anim:move{obj = c, to = {x = c_x, y = y}}
     c_x = c_x + sep
   end
-  table.insert(self.cards, new_card:change_l_props{card_id = n})
-  anim:move{obj = new_card, to = {x = c_x, y = y}}
+
+  table.insert(self.cards, new_card)
+  self.anim:move{obj = new_card, to = {x = c_x, y = y}}
 end
 
-function player:remove_card(card)
-  -- restructure positions
-    local x, y = self.d_props.x, self.d_props.y
-    local n = #self.cards-1
-    local sep = _get_card_separation(n)
+function player:remove(index) -- game rules happen
+  local x, y = self.d_props.x, self.d_props.y
+  local n = #self.cards-1
+  local sep = _get_card_separation(n)
 
-    table.remove(self.cards, card.l_props.card_id)
-    card:change_l_props{belongs_to = 'discard_pile'}
-    local c_x = x - (n-1) * sep / 2
-    for i, c in ipairs(self.cards) do
-      -- c:change_d_props{x = c_x, y = y}:change_l_props{card_id = i}
-      c:change_l_props{card_id = i}
-      anim:move{obj = c, to = {x = c_x, y = y}}
-      c_x = c_x + sep
-    end
-    card.on_exit = function() end
-    anim:move{obj = card, to = {x = love.graphics.getWidth() / 2 + (math.random(50) - 25), y = love.graphics.getHeight() / 2+ (math.random(50) - 25), r = u.lerp(math.random(), 0, 1, 0, math.pi)}}
+  local card = table.remove(self.cards, index)
+
+  local c_x = x - (n-1) * sep / 2
+  for i, c in ipairs(self.cards) do
+    self.anim:move{obj = c, to = {x = c_x, y = y}}
+    c_x = c_x + sep
+  end
+
+  self.hitbox:remove{
+    id = string.format('player_%s', self.name),
+    obj = card
+  }
+  return card
 end
 
 function player:draw()
-  -- draw player (referenced by self)
   for i, card in ipairs(self.cards) do
+    if player.valid_indices then
+
+    end
     card:draw()
   end
-  -- love.graphics.setColor(u.normalize(0, 0, 0, 255))
   love.graphics.printf(self.name, self.d_props.x, self.d_props.y - 120, 100, 'center')
-  -- love.graphics.setColor(u.normalize(255, 255, 255, 255))
+end
+
+function player:show_cards()
+  for i, card in ipairs(self.cards) do
+    card:show()
+  end
+end
+
+function player:hide_cards()
+  for i, card in ipairs(self.cards) do
+    card:hide()
+  end
+end
+
+function player:activate()
+  self.hitbox:activate_region(string.format('player_%s', self.name))
+end
+
+function player:deactivate()
+  self.hitbox:deactivate_region(string.format('player_%s', self.name))
 end
 
 return player

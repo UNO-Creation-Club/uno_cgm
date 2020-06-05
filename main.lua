@@ -1,12 +1,22 @@
 local game = require('game')
 
-function love.load()
-  love.window.setTitle('UNO')
+_coroutine_resume = coroutine.resume
+function coroutine.resume(...)
+	local state,result = _coroutine_resume(...)
+	if not state then
+		error( tostring(result), 2 )	-- Output error message
+	end
+	return state,result
+end
 
+function love.load()
+  -- math.randomseed( os.time() )
+
+  love.window.setTitle('UNO')
   font = love.graphics.newImageFont("assets/images/image_font.png",
-  " abcdefghijklmnopqrstuvwxyz" ..
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0" ..
-  "123456789.,!?-+/():;%&`'*#=[]\"{}")
+    " abcdefghijklmnopqrstuvwxyz" ..
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0" ..
+    "123456789.,!?-+/():;%&`'*#=[]\"{}_")
   love.graphics.setFont(font)
 
   game:load({'Chintu', 'Mintu', 'Bunty'})
@@ -28,9 +38,9 @@ function love.mousemoved(x, y)
   game:mousemoved(x,  y)
 end
 
-function love.keypressed(key)
-  game:keypressed(key)
-end
+-- function love.keypressed(key)
+--   game:keypressed(key)
+-- end
 
 --------------
 -- COMMENTS --
