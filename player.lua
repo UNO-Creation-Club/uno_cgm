@@ -38,7 +38,7 @@ end
 
 local function _get_card_separation(n)
   -- math.floor(self.separation * (0.91^(n-1)))
-  return n <= 7 and 300 / 7 or 300 / n
+  return n <= 7 and 250 / 7 or 250 / n
 end
 
 function player:_get_index(card)
@@ -130,12 +130,11 @@ end
 
 function player:draw()
   for i, card in ipairs(self.cards) do
-    -- if not self.valid_card_indices[i] then
-    --   self:deactivate_card(card)
-    --   love.graphics.setColor(u.normalize(100, 100, 100))
-    -- end
+    if not self.valid_card_indices[i] or card.d_props.sx <= 0 then
+      love.graphics.setColor(u.normalize(100, 100, 100))
+    end
     card:draw()
-    -- love.graphics.setColor(u.normalize(255, 255, 255))
+    love.graphics.setColor(u.normalize(255, 255, 255))
   end
   love.graphics.printf(self.name, self.d_props.x, self.d_props.y - 120, 100, 'center')
 end
@@ -163,7 +162,7 @@ function player:deactivate()
 end
 
 function player:activate_card(card)
-  self.hitbox:deactivate_card(string.format('player_%s', self.name), card)
+  self.hitbox:activate_object(string.format('player_%s', self.name), card)
 end
 
 function player:deactivate_card(card)

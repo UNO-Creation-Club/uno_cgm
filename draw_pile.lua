@@ -71,7 +71,9 @@ function draw_pile:remove()
     id = 'draw_pile',
     obj = self.cards[#self.cards]
   }
-  return table.remove(self.cards)
+  local c = table.remove(self.cards)
+  self:prime_top()
+  return c
 end
 
 function draw_pile:prime_top() -- for collision
@@ -84,6 +86,7 @@ function draw_pile:prime_top() -- for collision
       self.state.curr_player:add(self:remove())
       c:show()
       self:prime_top()
+      self.event_handler:dispatch{name = 'card_picked', type = c}
     end
   }
 end

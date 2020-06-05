@@ -5,7 +5,7 @@ local discard_pile = {}
 discard_pile.__index = discard_pile
 
 function discard_pile:d_props()
-  return {x = love.graphics.getWidth() / 2 - 30 + math.random(30), y = love.graphics.getHeight() / 2 - 30 + math.random(30), r = u.lerp(math.random(), 0, 1, 0, math.pi)}
+  return {x = love.graphics.getWidth() / 2 - 20 + math.random(40), y = love.graphics.getHeight() / 2  + 10  + math.random(5), r = u.lerp(math.random(), 0, 1, 0, math.pi)}
 end
 
 function discard_pile:initialize(params)

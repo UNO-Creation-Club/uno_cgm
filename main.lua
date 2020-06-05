@@ -1,3 +1,5 @@
+-- math.randomseed( 30 )
+
 local game = require('game')
 
 _coroutine_resume = coroutine.resume
