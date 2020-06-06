@@ -218,8 +218,8 @@ function apply_rules_first_time(state)
   -- if it's a reverse, change direction. curr_player remains same
   -- if it's a wild 4, return the card to the bottom of the draw_pile
   -- if it's a wild, curr_player chooses the color
-  -- state.phase = 'first time'
-  if true then return event_handler:dispatch{name = 'game_over'} end
+  
+  -- if true then return event_handler:dispatch{name = 'game_over'} end
   local initial_top_card = state.discard_pile:peek_top_card()
 
   if initial_top_card:get_rank() == "D" then
