@@ -1,1 +1,0 @@
-![uno_working.gif] (https://s7.gifyu.com/images/full_demo.gif "UNO Demo")
