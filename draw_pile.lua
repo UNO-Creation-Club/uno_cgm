@@ -9,7 +9,7 @@ draw_pile.elevated_d_props.y = draw_pile.elevated_d_props.y - 20
 
 function draw_pile:initialize(params)
   for k, v in pairs(params) do
-    draw_pile[k] = v
+    self[k] = v
   end
 end
 

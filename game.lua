@@ -15,6 +15,9 @@ local discard_pile = require('discard_pile')
 local draw_pile = require('draw_pile')
 local color_buttons = require('color_buttons')
 
+local bg_darkener = require('bg_darkener')
+local final_points = require('final_points')
+
 local hitbox = require('hitbox')
 local anim = require('anim')
 local event_handler = require('event_handler')
@@ -29,6 +32,14 @@ local game = {
 }
 
 -- Initialization routines
+
+bg_darkener:initialize{
+  anim = anim,
+}
+
+final_points:initialize{
+  anim = anim,
+}
 
 draw_pile:initialize{
   state = game.state,
@@ -63,9 +74,10 @@ color_buttons:initialize{
   hitbox = hitbox,
   anim = anim,
   event_handler = event_handler,
+  bg_darkener = bg_darkener,
 }
 
-local function build_deck() 
+local function build_deck()
   local suits = {'R', 'Y', 'G', 'B'}
   local ranks = {'1', '2', '3', '4', '5', '6', '7', '8', '9', 'S', 'R', 'D'}
 
@@ -207,6 +219,7 @@ function apply_rules_first_time(state)
   -- if it's a wild 4, return the card to the bottom of the draw_pile
   -- if it's a wild, curr_player chooses the color
   -- state.phase = 'first time'
+  if true then return event_handler:dispatch{name = 'game_over'} end
   local initial_top_card = state.discard_pile:peek_top_card()
 
   if initial_top_card:get_rank() == "D" then
@@ -242,10 +255,13 @@ function apply_rules(state)
 -- if it's a reverse, change direction
 -- if it's a wild 4, attempt to give the next player 4 cards, allow him to challenge the current player, current player chooses the color
 -- if it's a wild, curr_player chooses the deck_suit
+  if #state.curr_player.cards <= 0 then
+    return event_handler:dispatch({name = 'game_over'})
+  end
   local top_card = state.discard_pile:peek_top_card()
   if top_card:get_rank() == "D" then
     update_player(state)
-    for i=1, 2 do 
+    for i=1, 2 do
       state.curr_player:add(state.draw_pile:remove())
     end
   elseif top_card:get_rank() == "S" then
@@ -264,7 +280,7 @@ function apply_rules(state)
     end
     -- Colour Choosing -- Update deck_suit --
   end
-  update_player(state) 
+  update_player(state)
   generate_valid_cards(state.curr_player, top_card, state.deck_suit)
 end
 
@@ -284,23 +300,26 @@ local function get_card_value(card)
   elseif string.match(card:get_rank(), '[DSR]') then value = 20
   elseif string.match(card:get_rank(), '[0-9]') then value = tonumber(card:get_rank())
   end
+  return value
 end
 
 -- COMPLETE
-local function get_player_cards_value(player)
+local function get_player_cards_value(p)
   local value = 0
-  for i, card in ipairs(player.cards) do
-    value = value + get_card_value(card)
+  for i, c in ipairs(p.cards) do
+    value = value + get_card_value(c)
   end
   return value
 end
 
 -- COMPLETE
 local function get_points_for_winner(winner_id, players)
+  assert(winner_id, 'winner_id not present!')
+  assert(players, 'players not present!')
   local value = 0
-  for i, player in ipairs(players) do
+  for i, p in ipairs(players) do
     if i ~= winner_id then
-      value = value + get_player_cards_value(player)
+      value = value + get_player_cards_value(p)
     end
   end
   return value
@@ -315,8 +334,10 @@ function event_handler:on_receiving(event)
     game.state.draw_pile:deactivate()
     game.state.curr_player:deactivate()
     color_buttons:show()
+    bg_darkener:activate()
   elseif event.name == 'card_played' then
     -- do things realted to card being played
+    game.state.curr_player.valid_card_indices = {}
     game.state.discard_pile:add(game.state.curr_player:remove(event.type))
     game.state.draw_pile:activate()
     apply_rules(game.state)
@@ -326,6 +347,7 @@ function event_handler:on_receiving(event)
     game.state.draw_pile:activate()
     game.state.curr_player:activate()
     color_buttons:hide()
+    bg_darkener:deactivate()
     generate_valid_cards(game.state.curr_player, game.state.discard_pile:peek_top_card(), game.state.deck_suit)
   elseif event.name == 'card_picked' then
       game.state.draw_pile:deactivate()
@@ -334,7 +356,20 @@ function event_handler:on_receiving(event)
       end
       generate_valid_cards(game.state.curr_player, game.state.discard_pile:peek_top_card(), game.state.deck_suit)
       
-  end
+    elseif event.name == 'game_over' then
+      game.state.phase = 'over'
+      final_points:set(get_points_for_winner(game.state.curr_player_id, game.state.players))
+      game.state.draw_pile:deactivate()
+      for i, p in ipairs(game.state.players) do
+        if game.state.curr_player ~= p then
+          p:show_cards()
+        else
+          p:deactivate()
+        end
+      end
+      color_buttons:hide()
+      bg_darkener:activate()
+    end
 end
 
 -- Love2D integration functions
@@ -348,12 +383,12 @@ function game:load(players_names)
   self.state.draw_pile = draw_pile:create(deck)
   initialize_players(self.state, players_names)
   self.state.discard_pile = discard_pile:create(self.state.draw_pile:remove())
-  apply_rules_first_time(self.state)
   self.state.draw_pile:prime_top()
-
   for _, c in ipairs(game.state.curr_player.cards) do
     c:show()
   end
+
+  apply_rules_first_time(self.state)
 end
 
 -- TODO
@@ -370,11 +405,12 @@ function game:draw()
   for i, p in ipairs(self.state.players) do
     p:draw()
   end
-  
+
+  bg_darkener:draw()
   color_buttons:draw()
 
   if self.state.phase == 'over' then
-    -- show final score
+    love.graphics.printf(string.format('%s won by %d points!', self.state.curr_player.name, final_points:get()), love.graphics.getWidth() / 2 - 200, love.graphics.getHeight() / 2, 400, 'center')
   end
 
   if game.phase == 'development' then

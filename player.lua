@@ -131,7 +131,7 @@ end
 function player:draw()
   for i, card in ipairs(self.cards) do
     if not self.valid_card_indices[i] or card.d_props.sx <= 0 then
-      love.graphics.setColor(u.normalize(100, 100, 100))
+      love.graphics.setColor(u.normalize(150, 150, 150))
     end
     card:draw()
     love.graphics.setColor(u.normalize(255, 255, 255))
