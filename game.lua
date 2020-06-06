@@ -212,13 +212,13 @@ local function generate_valid_cards(player, top_card, deck_suit)
 end
 
 -- TODO
-function apply_rules_first_time(state)
+local function apply_rules_first_time(state)
   -- if it's draw 2, give state.curr_player 2 cards and skip his turn
   -- if it's a skip, skip state.curr_player's turn
   -- if it's a reverse, change direction. curr_player remains same
   -- if it's a wild 4, return the card to the bottom of the draw_pile
   -- if it's a wild, curr_player chooses the color
-  
+
   -- if true then return event_handler:dispatch{name = 'game_over'} end
   local initial_top_card = state.discard_pile:peek_top_card()
 
@@ -249,7 +249,7 @@ function apply_rules_first_time(state)
 end
 
 -- TODO
-function apply_rules(state)
+local function apply_rules(state)
 -- if it's draw 2, give next player 2 cards and skip his turn
 -- if it's a skip, skip next player's turn
 -- if it's a reverse, change direction
@@ -325,10 +325,6 @@ local function get_points_for_winner(winner_id, players)
   return value
 end
 
-function trial(state)
-  update_player(state)
-end
-
 function event_handler:on_receiving(event)
   if event.name == 'halt_game' then
     game.state.draw_pile:deactivate()
@@ -373,7 +369,7 @@ function event_handler:on_receiving(event)
 end
 
 -- Love2D integration functions
-function game:load(players_names)
+function game:load(player_names)
   self.state.bg = {d_props = {r = enums.colors.W[1], g = enums.colors.W[2], b = enums.colors.W[3], a = enums.colors.W[4]}, while_animating = function(self) love.graphics.setBackgroundColor(self.d_props.r, self.d_props.g, self.d_props.b, self.d_props.a) end}
   player_names = player_names or {'A', 'B', 'C'} -- if nothing is passed, we'll assume these 3 random names
   
@@ -381,7 +377,7 @@ function game:load(players_names)
   self.state.phase = 'running'
   local deck = build_deck()
   self.state.draw_pile = draw_pile:create(deck)
-  initialize_players(self.state, players_names)
+  initialize_players(self.state, player_names)
   self.state.discard_pile = discard_pile:create(self.state.draw_pile:remove())
   self.state.draw_pile:prime_top()
   for _, c in ipairs(game.state.curr_player.cards) do
